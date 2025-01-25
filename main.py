@@ -1,62 +1,57 @@
 """
-Handle interfacing with CAB
+Handle scraping CAB for a full listing of course details; downloading/updating data files locally
 """
 
-from typing import Optional
+import json
+import os
+import time
+from datetime import UTC, datetime
 
-import requests
+from requests.exceptions import RequestException
+from tqdm import tqdm
 
-API_URL = "https://cab.brown.edu/api/"
-REQUEST_HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36",
-}
+import cab
+
+SRCDB = "202420"
+REQUESTS_PER_SECOND = 10
 
 
-def get_all_courses(srcdb: str) -> Optional[dict]:
+def scrape_all_course_details(srcdb: str):
     """
-    Scrapes all classes from cab
+    Pull details for all courses from database
 
     srcdb: CAB database ID for the current semester (e.g. 202420 for Spring 2025)
-
-    Returns dictionary of cab json output
     """
-    r = requests.post(
-        API_URL,
-        params={"page": "fose", "route": "search"},
-        headers=REQUEST_HEADERS,
-        json={  # TODO: add ability to specify criteria through a dictionary
-            "other": {"srcdb": srcdb},
-            "criteria": [
-                {"field": "is_ind_study", "value": "N"},
-                {"field": "is_canc", "value": "N"},
-            ],
-        },
-    )
+    # TODO: filter by whether hash changed since last time
+    try:
+        fetched_db = cab.get_all_courses(srcdb)["results"]
+    except RequestException as e:
+        print(f"Error fetching database {srcdb}: {e}")
+        return
 
-    r.raise_for_status()
-    return r.json()
+    datetime_zulu = f"{datetime.now(UTC):%Y%m%dT%H%M%SZ}"  # e.g. 20250125T143059Z
 
+    iter_results = {}  # assemble dict of all course details
+    for course in tqdm(fetched_db):
+        course_key = course["key"]
 
-def get_course_details(srcdb: str, key_type: str, key: str) -> Optional[dict]:
-    """
-    Scrapes details for a specific class from cab
+        try:  # pull specific course details from cab
+            course_details = cab.get_course_details(srcdb, "key", course_key)
+            iter_results[course_key] = course_details
 
-    srcdb: CAB database ID for the current semester (e.g. 202420 for Spring 2025)
-    key_type: Type of key ("key", "crn", etc.)
-    key: The corresponding key of the course to look up
+        except RequestException as e:
+            print(f"Error pulling details for key:{course_key}: {e}")
 
-    Returns dictionary of cab json output
-    """
-    r = requests.post(
-        API_URL,
-        params={"page": "fose", "route": "details"},
-        headers=REQUEST_HEADERS,
-        json={"key": f"{key_type}:{key}", "srcdb": srcdb},
-    )
+        finally:
+            time.sleep(1 / REQUESTS_PER_SECOND)
 
-    r.raise_for_status()
-    return r.json()
+    # dump results to file
+    dir = os.path.join("data", srcdb)
+    os.makedirs(dir, exist_ok=True)
+
+    with open(f"data/{srcdb}/{datetime_zulu}.json", "w") as f:
+        json.dump(iter_results, f)
 
 
 if __name__ == "__main__":
-    print(get_course_details("202420", "key", "1"))
+    scrape_all_course_details(SRCDB)
