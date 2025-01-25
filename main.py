@@ -1,6 +1,10 @@
-import requests
-from requests.exceptions import RequestException
+"""
+Handle interfacing with CAB
+"""
+
 from typing import Optional
+
+import requests
 
 API_URL = "https://cab.brown.edu/api/"
 REQUEST_HEADERS = {
@@ -8,7 +12,7 @@ REQUEST_HEADERS = {
 }
 
 
-def fetch_db(srcdb: str) -> Optional[dict]:
+def get_all_courses(srcdb: str) -> Optional[dict]:
     """
     Scrapes all classes from cab
 
@@ -16,28 +20,24 @@ def fetch_db(srcdb: str) -> Optional[dict]:
 
     Returns dictionary of cab json output
     """
-    try:
-        r = requests.post(
-            API_URL,
-            params={"page": "fose", "route": "search"},
-            headers=REQUEST_HEADERS,
-            json={
-                "other": {"srcdb": srcdb},
-                "criteria": [
-                    {"field": "is_ind_study", "value": "N"},
-                    {"field": "is_canc", "value": "N"},
-                ],
-            },
-        )
+    r = requests.post(
+        API_URL,
+        params={"page": "fose", "route": "search"},
+        headers=REQUEST_HEADERS,
+        json={  # TODO: add ability to specify criteria through a dictionary
+            "other": {"srcdb": srcdb},
+            "criteria": [
+                {"field": "is_ind_study", "value": "N"},
+                {"field": "is_canc", "value": "N"},
+            ],
+        },
+    )
 
-        r.raise_for_status()
-        return r.json()
-
-    except RequestException as e:
-        print(f"Error fetching database {srcdb}: {e}")
+    r.raise_for_status()
+    return r.json()
 
 
-def class_details(srcdb: str, key_type: str, key: str) -> Optional[dict]:
+def get_course_details(srcdb: str, key_type: str, key: str) -> Optional[dict]:
     """
     Scrapes details for a specific class from cab
 
@@ -47,20 +47,16 @@ def class_details(srcdb: str, key_type: str, key: str) -> Optional[dict]:
 
     Returns dictionary of cab json output
     """
-    try:
-        r = requests.post(
-            API_URL,
-            params={"page": "fose", "route": "details"},
-            headers=REQUEST_HEADERS,
-            json={"key": f"{key_type}:{key}", "srcdb": srcdb},
-        )
+    r = requests.post(
+        API_URL,
+        params={"page": "fose", "route": "details"},
+        headers=REQUEST_HEADERS,
+        json={"key": f"{key_type}:{key}", "srcdb": srcdb},
+    )
 
-        r.raise_for_status()
-        return r.json()
-
-    except RequestException as e:
-        print(f"Error fetching class {key_type}:{key} from database {srcdb}: {e}")
+    r.raise_for_status()
+    return r.json()
 
 
 if __name__ == "__main__":
-    print(class_details("202420", "key", "1"))
+    print(get_course_details("202420", "key", "1"))
