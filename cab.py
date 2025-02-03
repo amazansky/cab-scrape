@@ -7,9 +7,6 @@ from typing import Optional
 import requests
 
 API_URL = "https://cab.brown.edu/api/"
-REQUEST_HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36",
-}
 
 
 def get_all_courses(srcdb: str) -> Optional[dict]:
@@ -23,7 +20,6 @@ def get_all_courses(srcdb: str) -> Optional[dict]:
     r = requests.post(
         API_URL,
         params={"page": "fose", "route": "search"},
-        headers=REQUEST_HEADERS,
         json={  # TODO: add ability to specify criteria through a dictionary
             "other": {"srcdb": srcdb},
             "criteria": [
@@ -50,7 +46,6 @@ def get_course_details(srcdb: str, key_type: str, key: str) -> Optional[dict]:
     r = requests.post(
         API_URL,
         params={"page": "fose", "route": "details"},
-        headers=REQUEST_HEADERS,
         json={"key": f"{key_type}:{key}", "srcdb": srcdb},
     )
 
